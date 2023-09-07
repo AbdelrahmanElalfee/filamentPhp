@@ -1,18 +1,14 @@
 <?php
 
-namespace App\Filament\Resources;
+namespace App\Filament\Resources\CustomerResource\RelationManagers;
 
 use App\Enums\OrderStatusEnum;
-use App\Filament\Resources\OrderResource\Pages;
-use App\Filament\Resources\OrderResource\RelationManagers;
-use App\Models\Order;
 use App\Models\Product;
 use Filament\Forms;
 use Filament\Forms\Components\Wizard;
 use Filament\Forms\Components\Wizard\Step;
 use Filament\Forms\Form;
-use Filament\Resources\Resource;
-use Filament\Support\Colors\Color;
+use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Filament\Tables\Actions\ActionGroup;
 use Filament\Tables\Actions\DeleteAction;
@@ -23,42 +19,11 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 
-class OrderResource extends Resource
+class OrdersRelationManager extends RelationManager
 {
-    protected static ?string $model = Order::class;
+    protected static string $relationship = 'orders';
 
-    protected static ?string $navigationIcon = 'heroicon-o-shopping-bag';
-
-    protected static ?string $navigationGroup = 'Shop';
-
-    protected static ?string $navigationLabel = 'Orders';
-
-    protected static ?int $navigationSort = 2;
-
-    protected static ?string $recordTitleAttribute = 'number';
-
-    protected static int $globalSearchResultsLimit = 20;
-
-    protected static ?string $activeNavigationIcon = 'heroicon-o-check-badge';
-
-    public static function getNavigationBadge(): ?string
-    {
-        return static::getModel()::where('status', '=', 'processing')->count();
-    }
-
-    public static function getNavigationBadgeColor(): string|array|null
-    {
-        return static::getModel()::where('status', '=', 'processing')->count() < 10
-            ? 'danger'
-            : color::Purple;
-    }
-
-    public static function getGloballySearchableAttributes(): array
-    {
-        return ['customer.name', 'number'];
-    }
-
-    public static function form(Form $form): Form
+    public function form(Form $form): Form
     {
         return $form
             ->schema([
@@ -86,8 +51,7 @@ class OrderResource extends Resource
                                     'processing' => OrderStatusEnum::PROCESSING->value,
                                     'Completed' => OrderStatusEnum::COMPLETED->value,
                                     'declined' => OrderStatusEnum::DECLINED->value,
-                                ])->default('pending')
-                                ->required(),
+                                ])->required(),
                             Forms\Components\MarkdownEditor::make('notes')
                                 ->columnSpanFull()
                         ])->columns(2),
@@ -98,10 +62,10 @@ class OrderResource extends Resource
                                     Forms\Components\Select::make('product_id')
                                         ->label('Product')
                                         ->required()
-                                        ->relationship('items', 'name')
+                                        ->options(Product::query()->pluck('name', 'id'))
                                         ->reactive()
                                         ->afterStateUpdated(fn($state, Forms\Set $set) =>
-                                            $set('unit_price', Product::find($state)?->price ?? 0)
+                                        $set('unit_price', Product::find($state)?->price ?? 0)
                                         ),
                                     Forms\Components\TextInput::make('quantity')
                                         ->numeric()
@@ -125,9 +89,10 @@ class OrderResource extends Resource
             ]);
     }
 
-    public static function table(Table $table): Table
+    public function table(Table $table): Table
     {
         return $table
+            ->recordTitleAttribute('number')
             ->columns([
                 TextColumn::make('number')
                     ->searchable()
@@ -151,10 +116,13 @@ class OrderResource extends Resource
                 ,
                 TextColumn::make('created_at')
                     ->label('Order Date')
-                    ->date()
+                    ->date(),
             ])
             ->filters([
                 //
+            ])
+            ->headerActions([
+                Tables\Actions\CreateAction::make(),
             ])
             ->actions([
                 ActionGroup::make([
@@ -171,21 +139,5 @@ class OrderResource extends Resource
             ->emptyStateActions([
                 Tables\Actions\CreateAction::make(),
             ]);
-    }
-
-    public static function getRelations(): array
-    {
-        return [
-            //
-        ];
-    }
-
-    public static function getPages(): array
-    {
-        return [
-            'index' => Pages\ListOrders::route('/'),
-            'create' => Pages\CreateOrder::route('/create'),
-            'edit' => Pages\EditOrder::route('/{record}/edit'),
-        ];
     }
 }
